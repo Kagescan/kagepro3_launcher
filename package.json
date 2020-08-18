@@ -1,0 +1,25 @@
+{
+  "name": "kagepro3_launcher",
+  "version": "0.1.0",
+  "description": "Native launcher to run the source code of Retaining's Memories Kagerou Project fangame (https://kagescan.legtux.org/fangame/)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LoganTann/kagepro3_launcher.git"
+  },
+  "author": "Logan \"ShinProg\" TANN",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/LoganTann/kagepro3_launcher/issues"
+  },
+  "homepage": "https://github.com/LoganTann/kagepro3_launcher#readme",
+  "devDependencies": {
+    "electron-builder": "^22.8.0"
+  },
+  "dependencies": {
+    "electron": "^9.2.0"
+  }
+}

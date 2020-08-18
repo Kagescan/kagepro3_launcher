@@ -1,0 +1,94 @@
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 100%, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  font-family: sans-serif;
+}
+
+#loadingScreen {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: center;
+  height: 100%;
+}
+
+#kagescanLogo {
+  max-height: 30vh;
+  max-width: 90vw;
+}
+#message {
+  height: 10em;
+  border: 1px dashed black;
+  width: 80vw;
+  padding: 1em;
+  display: flex;
+  align-items: center;
+}
+#message p {
+  margin: auto;
+}
+#message>p>span {
+  animation: 1s fadeInUp;
+  display: block;
+}
+#message span.btnContainer {
+  text-align: center;
+}
+#message span.btnContainer>button {
+  padding: 0.5em;
+  margin: 0.5em 1em;
+}
+
+#messagelog {
+  position: absolute;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
+  top: 0;
+  left: 0;
+  background-color: rgba(0,0,0,0.7);
+}
+#messagelog>div {
+  width: 80vw;
+  height: 80vh;
+  padding: 1em;
+  background: white;
+  overflow: auto;
+}
+#messagelog.hide {
+  display: none;
+}
+#messagelog a.quit {
+  position: absolute;
+  display: block;
+  text-align: center;
+  background: white;
+  width: 80vw;
+  transform: translate(-1em, -1em);
+  padding: 1em 0;
+}
+#ene {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+@media screen and (max-width: 600px) {
+  #message {
+    flex-direction: column-reverse;
+    overflow: auto;
+  }
+}

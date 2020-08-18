@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Retaining's Memories Launcher (v0.1.0)</title>
+    <link rel="shortcut icon" href="favicon.ico" />
+    <script src="launcher_assets/virtualEne.js" charset="utf-8"></script>
+    <script src="launcher_assets/updater.js" charset="utf-8"></script>
+    <link rel="stylesheet" href="launcher_assets/style.css">
+  </head>
+  <body id="body">
+    <div id="loadingScreen">
+      <img src="launcher_assets/kagescan.svg" alt="" id="kagescanLogo">
+      <div id="message">
+        <p>Goshijin, I'm initializing... Please wait !<br></p>
+        <img src="launcher_assets/eneSprites/shime01.png" alt="ene sideImage" id="sideImage">
+        <!-- <a href="#!" onclick="document.getElementById('messagelog').classList.toggle('hide')">
+          backlog
+        </a> -->
+      </div>
+    </div>
+    <div id="messagelog" class="hide">
+      <div>
+        <a href="#!" class="quit" onclick="document.getElementById('messagelog').classList.toggle('hide')">QUIT</a>
+        <p>&nbsp;</p>
+        <h2>Log</h2>
+
+      </div>
+    </div>
+    <script type="text/javascript">
+      document.addEventListener("DOMContentLoaded", function () {
+        console.log("started");
+        setTimeout(updater.start, 1000);
+      })
+
+
+      document.addEventListener("keydown", function (e) {
+        // dev shortcuts
+    		if (e.which === 123) { //F12
+          require('electron').remote.getCurrentWindow().toggleDevTools()
+    		} else if (e.which === 116) { //F5
+    			location.reload();
+    		}
+    	});
+      
+      function startGame() {
+        location.href = "index.html";
+      }
+    </script>
+  </body>
+</html>
