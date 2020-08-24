@@ -20,7 +20,7 @@ function createWindow () {
     icon: "favicon.ico",
     webPreferences: {
         nodeIntegration: true,
-        contextIsolation: true,
+        contextIsolation: false, // -> true = not able to use require()
         enableRemoteModule: true // TODO: use an alternative on future versions.
 
     }
@@ -87,3 +87,56 @@ app.whenReady().then(() => {
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit()
 })
+
+
+/*
+https://stackoverflow.com/questions/46102851/electron-download-a-file-to-a-specific-location
+
+
+ipcRenderer.send("download", {
+    url: "URL is here",
+    properties: {directory: "Directory is here"}
+});
+
+In the main.js, your code would look something like this:
+
+const {app, BrowserWindow, ipcMain} = require("electron");
+const {download} = require("electron-dl");
+let window;
+app.on("ready", () => {
+    window = new BrowserWindow({
+        width: someWidth,
+        height: someHeight
+    });
+    window.loadURL(`file://${__dirname}/index.html`);
+    ipcMain.on("download", (event, info) => {
+        download(BrowserWindow.getFocusedWindow(), info.url, info.properties)
+            .then(dl => window.webContents.send("download complete", dl.getSavePath()));
+    });
+});
+
+The "download complete" listener is in the renderer.js, and would look like:
+
+const {ipcRenderer} = require("electron");
+ipcRenderer.on("download complete", (event, file) => {
+    console.log(file); // Full file path
+});
+
+If you want to track your download's progress:
+
+In main.js:
+
+ipcMain.on("download", (event, info) => {
+    info.properties.onProgress = status => window.webContents.send("download progress", status);
+    download(BrowserWindow.getFocusedWindow(), info.url, info.properties)
+        .then(dl => window.webContents.send("download complete", dl.getSavePath()));
+});
+
+In renderer.js:
+
+ipcRenderer.on("download progress", (event, progress) => {
+    console.log(progress); // Progress in fraction, between 0 and 1
+    const progressInPercentages = progress * 100; // With decimal point and a bunch of numbers
+    const cleanProgressInPercentages = Math.floor(progress * 100); // Without decimal point
+});
+*/
