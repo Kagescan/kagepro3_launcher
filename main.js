@@ -1,4 +1,4 @@
-const {app, BrowserWindow, session} = require('electron')
+const {app, BrowserWindow, session, ipcMain, webContents } = require('electron')
 const path = require('path');
 const url = require('url');
 
@@ -21,14 +21,16 @@ function createWindow () {
     webPreferences: {
         nodeIntegration: true,
         contextIsolation: false, // -> true = not able to use require()
-        enableRemoteModule: true // TODO: use an alternative on future versions.
-
+        enableRemoteModule: true, // TODO: use an alternative on future versions.
+        preload: path.join(__dirname, 'preload.js')
     }
   })
   if (process.platform !== 'darwin'){
     mainWindow.removeMenu();
   }
-  mainWindow.webContents.openDevTools()
+  if (global.isDev) {
+    mainWindow.webContents.openDevTools();
+  }
 
   // Security STUFF
   session.defaultSession.webRequest.onBeforeRequest(
@@ -69,6 +71,65 @@ function createWindow () {
   });
   // target="_blank"
   mainWindow.loadFile('launcher.html');
+
+
+
+  //////////////////////////////
+
+  ipcMain.on("startDownload", async (event, download_list) => {
+    const nbr_of_types = Object.keys(download_list).length - 1;
+    let current_type_index = 1;
+    for (const download_type in download_list) {
+      if (!Array.isArray(download_list[download_type])) {
+        continue;
+      }
+      mainWindow.webContents.send("updateDownloadMessage", {
+        type: "categoryTitle",
+        content: `Downloading ${download_type} (${current_type_index}/${nbr_of_types})`
+      });
+      mainWindow.webContents.send("updateDownloadMessage", {
+        type: "categoryProgress",
+        content: 0
+      });
+      const total_items_in_that_category = download_list[download_type].length;
+      let items_of_this_category_dld = 1;
+      for (const download_item of download_list[download_type]) {
+        const url = download_item.url;
+        const props = {};
+        mainWindow.webContents.send("updateDownloadMessage", {
+          type: "fileTitle",
+          content: `${url}`
+        });
+        mainWindow.webContents.send("updateDownloadMessage", {
+          type: "categoryProgress",
+          content: 100 * items_of_this_category_dld/total_items_in_that_category
+        });
+        mainWindow.webContents.send("updateDownloadMessage", {
+          type: "fileProgress",
+          content: 0
+        });
+        // Well, making async kind of sync function
+        const result = await new Promise( (resolve, reject) => {
+          setTimeout( ()=> {
+            mainWindow.webContents.send("updateDownloadMessage", {
+              type: "fileProgress",
+              content: 100
+            });
+            setTimeout( ()=> {
+              resolve(url)
+            }, 200);
+          }, 200);
+          /*
+          download(BrowserWindow.getFocusedWindow(), url, props)
+          .then(dl => {resolve(dl.getSavePath());} );*/
+        });
+        items_of_this_category_dld++;
+        console.log(result);
+      }
+      current_type_index++;
+    }
+    mainWindow.webContents.send("downloadFinished");
+  });
 }
 
 app.whenReady().then(() => {
@@ -87,6 +148,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit()
 })
+
 
 
 /*

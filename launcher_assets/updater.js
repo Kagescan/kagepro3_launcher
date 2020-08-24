@@ -92,11 +92,79 @@ const updater = {
   }
   ,
   DoDownloadItemList(downloadList) {
-    alert("downloading item list", downloadList);
+    const title_category_being_dl = document.createElement("span");
+    const title_file_being_dl = document.createElement("span");
+    const general_progress = document.createElement("span");
+    const file_progress = document.createElement("span");
+
+    general_progress.innerHTML = `<svg width="80mm" height="14mm" version="1.1" viewBox="0 0 120 21" xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+     <rect x="17.5" y="3" width="100" height="10" fill="#fff" fill-rule="evenodd" stroke="#000" stroke-width=".7"/>
+     <rect x="17.3" y="3" width="0" height="10" class="progressBar"/>
+     <path transform="matrix(1.218 0 0 1.1743 3 4.8239)" d="m8.3603 5.1835-5.3791 3.2167-5.3783-3.0961 0.0011-6.3197 5.3791-3.0925 5.3783 3.1116z" fill-rule="evenodd" stroke-width=".26458"/>
+     <text transform="scale(1 1)" x="67.671822" y="19.335659" fill="#000000" font-family="sans-serif" font-size="5px" stroke-width=".2638" xml:space="preserve">In progress... (<tspan class="percentage"></tspan>%)</text>
+     <path d="m65.503 18.033h-51.902l-6.9958-10.657" fill="none" stroke="#000" stroke-width=".7"/>
+    </svg>`;
+    file_progress.innerHTML = general_progress.innerHTML;
+    title_category_being_dl.innerHTML = "Downloading";
+    title_file_being_dl.innerHTML = "file";
+    general_progress.id = "general_progress";
+    file_progress.id = "file_progress";
+    title_category_being_dl.id = "categoryDL";
+    title_file_being_dl.id = "fileDL";
+
+    const message = document.querySelector("#message>p");
+    message.classList.add("downloading");
+    message.innerHTML = "";
+    message.append(title_category_being_dl, general_progress);
+    message.append(title_file_being_dl, file_progress);
+    {
+      let tick = false;
+      function animateEne() {
+        if (! message.classList.contains("downloading")) {
+          clearInterval(animateEne);
+          return;
+        }
+        tick = !tick;
+        setSideImage("waiting "+tick);
+      }
+      setInterval(animateEne, 1700);
+    }
+
+    ipc.on("downloadFinished", (event, options) => {
+      message.classList.remove("downloading");
+      appendMessage("Downloading finished !!", true);
+      setSideImage("yay");
+    });
+    ipc.send("startDownload", downloadList);
+
+    //window.api.send("startDownload", downloadList);
+    // messageContainer.style.flexGrow = null;
   }
 
 }
 
+/*window.api.receive("updateDownloadMessage", (type) => {
+  console.log(`Received ${data} from main process`);
+});*/
+ipc.on("updateDownloadMessage", (event, options) => {
+  const {type, content} = options;
+  switch (type) {
+    case "categoryTitle":
+      document.getElementById("categoryDL").innerText = content;
+      break;
+    case "fileTitle":
+      document.getElementById("fileDL").innerText = content;
+      break;
+    case "categoryProgress":
+      document.querySelector("#general_progress svg .percentage").innerHTML = content;
+      document.querySelector("#general_progress svg .progressBar").setAttribute("width", content);
+      break;
+    case "fileProgress":
+      document.querySelector("#file_progress svg .percentage").innerHTML = content;
+      document.querySelector("#file_progress svg .progressBar").setAttribute("width", content);
+      break;
+  }
+});
 // HELPERS
 
 function GET(url) {
@@ -159,8 +227,7 @@ function confirmMessage(callbackOk, callbackNo, btnContentOk="Confirm", btnConte
   message.append(btnContainer);
 }
 
-          // setSideImage("error");
-          // appendMessage(`The game isn't downloaded.`, true);
+
 function appendMessage(text, reset = false) {
   const span = document.createElement("span");
   const message = document.querySelector("#message>p");
@@ -175,7 +242,9 @@ function setSideImage(id) {
     "yay": "shime01.png",
     "error": "shime5.png",
     "ask": "shime6.png",
-    "sit tongue": "shime29.png"
+    "sit tongue": "shime29.png",
+    "waiting false": "shime31.png",
+    "waiting true": "shime32.png"
   };
   document.getElementById("sideImage").src = "launcher_assets/eneSprites/" + image[id];
 }
