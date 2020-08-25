@@ -1,6 +1,7 @@
 const {app, BrowserWindow, session, ipcMain, webContents } = require('electron')
 const path = require('path');
 const url = require('url');
+const fs = require('fs');
 
 // HELPERS -------
 // isDev -> Running in dev mode will add a shortcut key to open web console.
@@ -76,6 +77,40 @@ function createWindow () {
 
   //////////////////////////////
 
+  async function test_download_file(file_path) {
+    const url = `https://raw.githubusercontent.com/LoganTann/kagepro2/production/`;
+    console.log(url, file_path);
+    const oldPath = file_path + '.old';
+
+    try {
+      if (fs.existsSync(file_path))  {
+        fs.rename(file_path, oldPath, function(err) {
+            if (err) throw(`cannot rename ${file_path} to ${oldPath} : ${err}`)
+        });
+      }
+      // const reply = await download(BrowserWindow.getFocusedWindow(), url, {
+      //status => mainWindow.webContents.send("downloadProgress", status);
+      // });
+      const reply = await new Promise(function(resolve, reject) {
+        const dirname = path.dirname(file_path);
+        const final_path = path.join(__dirname, dirname);
+        resolve( final_path );
+      });
+      if (fs.existsSync(oldPath))  {
+        fs.unlinkSync(oldPath);
+      }
+      return reply;
+    } catch (e) {
+      if (fs.existsSync(file_path) && fs.existsSync(oldPath))  {
+        fs.unlinkSync(file_path);
+        fs.rename(oldPath, file_path, function(err) {
+            if (err) console.error(`cannot rename ${oldPath} to ${file_path} : ${err}`);
+        });
+      }
+      console.error(`Got an error while downloading the file ${file_path} : ${e}`);
+      return false;
+    }
+  }
   ipcMain.on("startDownload", async (event, download_list) => {
     const nbr_of_types = Object.keys(download_list).length - 1;
     let current_type_index = 1;
@@ -109,20 +144,17 @@ function createWindow () {
           content: 0
         });
         // Well, making async kind of sync function
-        const result = await new Promise( (resolve, reject) => {
-          setTimeout( ()=> {
-            mainWindow.webContents.send("updateDownloadMessage", {
-              type: "fileProgress",
-              content: 100
-            });
-            setTimeout( ()=> {
-              resolve(url)
-            }, 200);
-          }, 200);
+        const result = await test_download_file(url);
           /*
+          setTimeout( ()=> {
+          mainWindow.webContents.send("updateDownloadMessage", {
+          type: "fileProgress",
+          content: 100
+        });
+        });
           download(BrowserWindow.getFocusedWindow(), url, props)
           .then(dl => {resolve(dl.getSavePath());} );*/
-        });
+
         items_of_this_category_dld++;
         console.log(result);
       }
@@ -131,6 +163,7 @@ function createWindow () {
     mainWindow.webContents.send("downloadFinished");
   });
 }
+
 
 app.whenReady().then(() => {
   createWindow();

@@ -132,7 +132,7 @@ const updater = {
 
     ipc.on("downloadFinished", (event, options) => {
       message.classList.remove("downloading");
-      appendMessage("Downloading finished !!", true);
+      appendMessage("Download finished !!", true);
       setSideImage("yay");
     });
     ipc.send("startDownload", downloadList);
