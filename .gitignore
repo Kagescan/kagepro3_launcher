@@ -1,3 +1,14 @@
+
+# game's files
+assets/
+engine/
+js/
+style/
+index.html
+*.old
+service-worker.js
+
+
 # Logs
 logs
 *.log

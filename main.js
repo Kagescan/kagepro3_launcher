@@ -2,6 +2,7 @@ const {app, BrowserWindow, session, ipcMain, webContents } = require('electron')
 const path = require('path');
 const url = require('url');
 const fs = require('fs');
+const {download} = require('electron-dl');
 
 // HELPERS -------
 // isDev -> Running in dev mode will add a shortcut key to open web console.
@@ -9,6 +10,19 @@ global.isDev = process.argv.includes("isDev");
 // escapeRegex -> All of these should be escaped: \ ^ $ * + ? . ( ) | { } [ ]
 const escapeRegex = (string) => {string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')};
 
+function formatBytes(bytes, decimals = 2) {
+  // TODO: Remove the duplication
+  // duplicated from updater.js https://stackoverflow.com/a/18650828
+  if (bytes === 0) return '0 Bytes';
+
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
 
 // MAIN ----------
 function createWindow () {
@@ -26,6 +40,7 @@ function createWindow () {
         preload: path.join(__dirname, 'preload.js')
     }
   })
+
   if (process.platform !== 'darwin'){
     mainWindow.removeMenu();
   }
@@ -76,27 +91,33 @@ function createWindow () {
 
 
   //////////////////////////////
-
   async function test_download_file(file_path) {
-    const url = `https://raw.githubusercontent.com/LoganTann/kagepro2/production/`;
-    console.log(url, file_path);
+    const url = `https://raw.githubusercontent.com/LoganTann/kagepro2/production/${file_path}`;
     const oldPath = file_path + '.old';
-
     try {
       if (fs.existsSync(file_path))  {
         fs.rename(file_path, oldPath, function(err) {
             if (err) throw(`cannot rename ${file_path} to ${oldPath} : ${err}`)
         });
       }
-      // const reply = await download(BrowserWindow.getFocusedWindow(), url, {
-      //status => mainWindow.webContents.send("downloadProgress", status);
-      // });
-      const reply = await new Promise(function(resolve, reject) {
-        const dirname = path.dirname(file_path);
-        const final_path = path.join(__dirname, dirname);
-        resolve( final_path );
+      const reply = await download(mainWindow, url, {
+        directory: path.join(__dirname, path.dirname(file_path)),
+        onCancel: (status) => {console.error(status);},
+        onProgress: (status) => {
+          if (status.totalBytes > 1000000) {
+            // no need to update if it's instant
+            mainWindow.webContents.send("updateDownloadMessage", {
+              type: "fileProgress",
+              content: (status.percent * 100).toFixed(2)
+            });
+          }
+          mainWindow.webContents.send("updateDownloadMessage", {
+            type: "fileTitle",
+            content: `${file_path} (${formatBytes(status.transferredBytes)}/${formatBytes(status.totalBytes)})`
+          });
+        }
       });
-      if (fs.existsSync(oldPath))  {
+      if (fs.existsSync(oldPath) && fs.existsSync(path))  {
         fs.unlinkSync(oldPath);
       }
       return reply;
@@ -133,11 +154,11 @@ function createWindow () {
         const props = {};
         mainWindow.webContents.send("updateDownloadMessage", {
           type: "fileTitle",
-          content: `${url}`
+          content: `${url} ...`
         });
         mainWindow.webContents.send("updateDownloadMessage", {
           type: "categoryProgress",
-          content: 100 * items_of_this_category_dld/total_items_in_that_category
+          content: (100 * items_of_this_category_dld/total_items_in_that_category).toFixed(2)
         });
         mainWindow.webContents.send("updateDownloadMessage", {
           type: "fileProgress",
@@ -145,18 +166,7 @@ function createWindow () {
         });
         // Well, making async kind of sync function
         const result = await test_download_file(url);
-          /*
-          setTimeout( ()=> {
-          mainWindow.webContents.send("updateDownloadMessage", {
-          type: "fileProgress",
-          content: 100
-        });
-        });
-          download(BrowserWindow.getFocusedWindow(), url, props)
-          .then(dl => {resolve(dl.getSavePath());} );*/
-
         items_of_this_category_dld++;
-        console.log(result);
       }
       current_type_index++;
     }
@@ -181,57 +191,3 @@ app.whenReady().then(() => {
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit()
 })
-
-
-
-/*
-https://stackoverflow.com/questions/46102851/electron-download-a-file-to-a-specific-location
-
-
-ipcRenderer.send("download", {
-    url: "URL is here",
-    properties: {directory: "Directory is here"}
-});
-
-In the main.js, your code would look something like this:
-
-const {app, BrowserWindow, ipcMain} = require("electron");
-const {download} = require("electron-dl");
-let window;
-app.on("ready", () => {
-    window = new BrowserWindow({
-        width: someWidth,
-        height: someHeight
-    });
-    window.loadURL(`file://${__dirname}/index.html`);
-    ipcMain.on("download", (event, info) => {
-        download(BrowserWindow.getFocusedWindow(), info.url, info.properties)
-            .then(dl => window.webContents.send("download complete", dl.getSavePath()));
-    });
-});
-
-The "download complete" listener is in the renderer.js, and would look like:
-
-const {ipcRenderer} = require("electron");
-ipcRenderer.on("download complete", (event, file) => {
-    console.log(file); // Full file path
-});
-
-If you want to track your download's progress:
-
-In main.js:
-
-ipcMain.on("download", (event, info) => {
-    info.properties.onProgress = status => window.webContents.send("download progress", status);
-    download(BrowserWindow.getFocusedWindow(), info.url, info.properties)
-        .then(dl => window.webContents.send("download complete", dl.getSavePath()));
-});
-
-In renderer.js:
-
-ipcRenderer.on("download progress", (event, progress) => {
-    console.log(progress); // Progress in fraction, between 0 and 1
-    const progressInPercentages = progress * 100; // With decimal point and a bunch of numbers
-    const cleanProgressInPercentages = Math.floor(progress * 100); // Without decimal point
-});
-*/
