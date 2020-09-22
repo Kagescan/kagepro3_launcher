@@ -95,6 +95,9 @@ function createWindow () {
     const url = `https://raw.githubusercontent.com/LoganTann/kagepro2/production/${file_path}`;
     const oldPath = file_path + '.old';
     try {
+      if (url.includes("..")) {
+        throw "SECURITY ERROR : the url " + url + " contains prohibited characters : '..' ";
+      }
       if (fs.existsSync(file_path))  {
         fs.rename(file_path, oldPath, function(err) {
             if (err) throw(`cannot rename ${file_path} to ${oldPath} : ${err}`)
@@ -102,22 +105,20 @@ function createWindow () {
       }
       const reply = await download(mainWindow, url, {
         directory: path.join(__dirname, path.dirname(file_path)),
+        filename: path.basename(file_path),
         onCancel: (status) => {console.error(status);},
         onProgress: (status) => {
-          if (status.totalBytes > 1000000) {
-            // no need to update if it's instant
-            mainWindow.webContents.send("updateDownloadMessage", {
-              type: "fileProgress",
-              content: (status.percent * 100).toFixed(2)
-            });
-          }
+          mainWindow.webContents.send("updateDownloadMessage", {
+            type: "fileProgress",
+            content: (status.percent * 100).toFixed(2)
+          });
           mainWindow.webContents.send("updateDownloadMessage", {
             type: "fileTitle",
             content: `${file_path} (${formatBytes(status.transferredBytes)}/${formatBytes(status.totalBytes)})`
           });
         }
       });
-      if (fs.existsSync(oldPath) && fs.existsSync(path))  {
+      if (fs.existsSync(file_path) && fs.existsSync(oldPath))  {
         fs.unlinkSync(oldPath);
       }
       return reply;
@@ -128,33 +129,39 @@ function createWindow () {
             if (err) console.error(`cannot rename ${oldPath} to ${file_path} : ${err}`);
         });
       }
+      mainWindow.webContents.send("updateDownloadMessage", {
+        type: "fileTitle",
+        content: `${file_path} (Error ?!)`
+      });
       console.error(`Got an error while downloading the file ${file_path} : ${e}`);
       return false;
     }
-  }
+  };
+
   ipcMain.on("startDownload", async (event, download_list) => {
     const nbr_of_types = Object.keys(download_list).length - 1;
     let current_type_index = 1;
-    for (const download_type in download_list) {
-      if (!Array.isArray(download_list[download_type])) {
+    for (const download_category in download_list) {
+      if (!Array.isArray(download_list[download_category])) {
         continue;
       }
       mainWindow.webContents.send("updateDownloadMessage", {
         type: "categoryTitle",
-        content: `Downloading ${download_type} (${current_type_index}/${nbr_of_types})`
+        content: `Downloading ${download_category} (${current_type_index}/${nbr_of_types})`
       });
       mainWindow.webContents.send("updateDownloadMessage", {
         type: "categoryProgress",
         content: 0
       });
-      const total_items_in_that_category = download_list[download_type].length;
+      const total_items_in_that_category = download_list[download_category].length;
       let items_of_this_category_dld = 1;
-      for (const download_item of download_list[download_type]) {
+      for (const download_item of download_list[download_category]) {
         const url = download_item.url;
+        const fileSize = download_item.fileSize;
         const props = {};
         mainWindow.webContents.send("updateDownloadMessage", {
           type: "fileTitle",
-          content: `${url} ...`
+          content: `${url} (0 Bytes/${formatBytes(fileSize)})`
         });
         mainWindow.webContents.send("updateDownloadMessage", {
           type: "categoryProgress",

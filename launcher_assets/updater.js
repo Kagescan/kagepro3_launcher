@@ -83,7 +83,7 @@ const updater = {
           type_of_file = "assets";
         }
       }
-      queue[type_of_file].push( {url: file_name, editType: type_of_edition});
+      queue[type_of_file].push( {url: file_name, editType: type_of_edition, fileSize: file_size});
       queue.totalSize += file_size;
     }
     // TODO: check files to delete in another function
@@ -104,7 +104,7 @@ const updater = {
      <text transform="scale(1 1)" x="67.671822" y="19.335659" fill="#000000" font-family="sans-serif" font-size="5px" stroke-width=".2638" xml:space="preserve">In progress... (<tspan class="percentage"></tspan>%)</text>
      <path d="m65.503 18.033h-51.902l-6.9958-10.657" fill="none" stroke="#000" stroke-width=".7"/>
     </svg>`;
-    file_progress.innerHTML = general_progress.innerHTML;
+    file_progress.innerHTML = '<progress max="100" value="0"></progress>';
     title_category_being_dl.innerHTML = "Downloading";
     title_file_being_dl.innerHTML = "file";
     general_progress.id = "general_progress";
@@ -160,10 +160,13 @@ ipc.on("updateDownloadMessage", (event, options) => {
       document.querySelector("#general_progress svg .progressBar").setAttribute("width", content);
       break;
     case "fileProgress":
-      document.querySelector("#file_progress svg .percentage").innerHTML = content;
-      document.querySelector("#file_progress svg .progressBar").setAttribute("width", content);
+      document.querySelector("#file_progress progress").setAttribute("value", content);
       break;
   }
+});
+
+ipc.on("alert", (event, options) => {
+  alert(options);
 });
 // HELPERS
 

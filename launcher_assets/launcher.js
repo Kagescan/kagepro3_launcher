@@ -32,13 +32,13 @@ document.addEventListener("DOMContentLoaded", function () {
         currentWindow.toggleDevTools()
       } else if (e.which === 116) { //F5
         location.reload();
+        // Not needed and might not work
       }
     }
   });
 
   // MAIN
-  console.log("started");
-  setTimeout(updater.start, 1000);
+  updater.start();
 });
 
 
