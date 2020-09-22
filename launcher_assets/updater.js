@@ -98,11 +98,11 @@ const updater = {
     const file_progress = document.createElement("span");
 
     general_progress.innerHTML = `<svg width="80mm" height="14mm" version="1.1" viewBox="0 0 120 21" xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-     <rect x="17.5" y="3" width="100" height="10" fill="#fff" fill-rule="evenodd" stroke="#000" stroke-width=".7"/>
-     <rect x="17.3" y="3" width="0" height="10" class="progressBar"/>
-     <path transform="matrix(1.218 0 0 1.1743 3 4.8239)" d="m8.3603 5.1835-5.3791 3.2167-5.3783-3.0961 0.0011-6.3197 5.3791-3.0925 5.3783 3.1116z" fill-rule="evenodd" stroke-width=".26458"/>
-     <text transform="scale(1 1)" x="67.671822" y="19.335659" fill="#000000" font-family="sans-serif" font-size="5px" stroke-width=".2638" xml:space="preserve">In progress... (<tspan class="percentage"></tspan>%)</text>
-     <path d="m65.503 18.033h-51.902l-6.9958-10.657" fill="none" stroke="#000" stroke-width=".7"/>
+     <rect x="17.5" y="3" width="100" height="10" fill="#133d59" fill-rule="evenodd" stroke="#218791" stroke-width=".7"/>
+     <rect x="17.3" y="3" width="0" height="10" class="progressBar" fill="#59bfc8"/>
+     <path transform="matrix(1.218 0 0 1.1743 3 4.8239)" d="m8.3603 5.1835-5.3791 3.2167-5.3783-3.0961 0.0011-6.3197 5.3791-3.0925 5.3783 3.1116z" fill-rule="evenodd" stroke-width=".26458" fill="#218791"/>
+     <text transform="scale(1 1)" x="67.671822" y="19.335659" fill="#218791" font-family="sans-serif" font-size="5px" stroke-width=".2638" xml:space="preserve">In progress... (<tspan class="percentage"></tspan>%)</text>
+     <path d="m65.503 18.033h-51.902l-6.9958-10.657" fill="none" stroke="#218791" stroke-width=".7"/>
     </svg>`;
     file_progress.innerHTML = '<progress max="100" value="0"></progress>';
     title_category_being_dl.innerHTML = "Downloading";

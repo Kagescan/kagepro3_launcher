@@ -8,25 +8,17 @@
     <script src="launcher_assets/updater.js" charset="utf-8"></script>
     <script src="launcher_assets/launcher.js" charset="utf-8"></script>
     <link rel="stylesheet" href="launcher_assets/style.css">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self';connect-src https://kagescan.legtux.org/fangame/ https://raw.githubusercontent.com/LoganTann/;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self';frame-src https://kagescan.legtux.org/fangame/; connect-src https://kagescan.legtux.org/fangame/ https://raw.githubusercontent.com/LoganTann/;">
   </head>
   <body id="body">
-    <div id="loadingScreen">
-      <img src="launcher_assets/kagescan.svg" alt="" id="kagescanLogo">
+    <div id="main_screen" style="">
+      <iframe src="https://kagescan.legtux.org/fangame/launcher_page/?test"></iframe>
       <div id="message">
-        <p>Goshijin, I'm initializing... Please wait !<br></p>
-        <img src="launcher_assets/eneSprites/shime01.png" alt="ene sideImage" id="sideImage">
-        <!-- <a href="#!" onclick="document.getElementById('messagelog').classList.toggle('hide')">
-          backlog
-        </a> -->
-      </div>
-    </div>
-    <div id="messagelog" class="hide">
-      <div>
-        <a href="#!" class="quit" onclick="document.getElementById('messagelog').classList.toggle('hide')">QUIT</a>
-        <p>&nbsp;</p>
-        <h2>Log</h2>
-
+          <p><span>Goshijin, let me just check if you can connect to kagescan's server !<br>...<br></span></p>
+          <img src="launcher_assets/eneSprites/shime01.png" alt="ene sideImage" id="sideImage">
+          <!-- <a href="#!" onclick="document.getElementById('messagelog').classList.toggle('hide')">
+            backlog
+          </a> -->
       </div>
     </div>
   </body>
