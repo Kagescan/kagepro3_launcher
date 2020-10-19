@@ -112,6 +112,38 @@ svg text {
   margin: 0.5em 1em;
 }
 
+/* Play button */
+#play_btn>svg {
+  max-height: 10em;
+}
+#state_defs>g.hide {
+  opacity: 0;
+}
+#state_defs>g {
+  opacity: 1;
+}
+#state_0 {
+  transition: opacity 0.1s;
+}
+#state_defs use{
+  width: 100%;
+  height: 100%;
+  display: inline;
+}
+#animatedCircle {
+  r: 0mm;
+  transition: all 0.4s;
+}
+#animatedCircle.big {
+  r: 3mm;
+  stroke-width: .7mm;
+}
+#animatedCircle.final {
+  r: 3.3mm;
+  stroke-width: 0mm;
+  opacity: 0.2;
+}
+
 #ene {
   position: absolute;
   top: 0;
