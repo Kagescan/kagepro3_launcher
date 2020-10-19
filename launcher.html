@@ -11,7 +11,13 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self';frame-src https://kagescan.legtux.org/fangame/; connect-src https://kagescan.legtux.org/fangame/ https://raw.githubusercontent.com/LoganTann/;">
   </head>
   <body id="body">
-    <div id="main_screen" style="">
+    <div id="video_intro_container">
+      <video id="video_intro_elem" autoplay>
+        <source src="launcher_assets/kagescan_intro.webm" type="video/webm"/>
+        How did you ended up to get this message ?!
+      </video>
+    </div>
+    <div id="main_screen">
       <iframe src="https://kagescan.legtux.org/fangame/launcher_page/?test"></iframe>
       <div id="message">
           <p><span>Goshijin, let me just check if you can connect to kagescan's server !<br>...<br></span></p>

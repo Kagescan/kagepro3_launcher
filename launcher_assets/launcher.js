@@ -37,8 +37,29 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
+  const do_hide_intro_video = function() {
+    const container = document.getElementById("video_intro_container");
+    if (container instanceof Element) {
+      container.classList.add("hide");
+      setTimeout(function() {
+        // double check is needed because between the 700ms, it may have been deleted
+        if (container instanceof Element) {
+          container.remove();
+        }
+      }, 700)
+    }
+  };
+  const video_element = document.getElementById("video_intro_elem");
+  video_element.addEventListener("ended", do_hide_intro_video);
+  video_element.addEventListener("click", do_hide_intro_video);
+
   // MAIN
-  updater.start();
+  try {
+    updater.start();
+  } catch (e) {
+    alert("An error occured during the initialisation of the launcher.\n You shouldn't see this message !. Please click okay, then take a screenshot and send it to us in order to report the bug. \n");
+    alert(`Informations about the error : \n ------- \n${e}`);
+  }
 });
 
 
