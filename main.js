@@ -1,18 +1,18 @@
-const {app, BrowserWindow, session, ipcMain, webContents } = require('electron')
+const {app, BrowserWindow, session, ipcMain, webContents, shell } = require('electron')
 const path = require('path');
 const url = require('url');
 const fs = require('fs');
 const {download} = require('electron-dl');
+const crypto = require('crypto');
 
 // HELPERS -------
 // isDev -> Running in dev mode will add a shortcut key to open web console.
 global.isDev = process.argv.includes("isDev");
 // escapeRegex -> All of these should be escaped: \ ^ $ * + ? . ( ) | { } [ ]
-const escapeRegex = (string) => {string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')};
+const escapeRegex = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function formatBytes(bytes, decimals = 2) {
-  // TODO: Remove the duplication
-  // duplicated from updater.js https://stackoverflow.com/a/18650828
+  // https://stackoverflow.com/a/18650828
   if (bytes === 0) return '0 Bytes';
 
   const k = 1024;
@@ -34,9 +34,12 @@ function createWindow () {
     minHeight: 600,
     icon: "favicon.ico",
     webPreferences: {
-        nodeIntegration: true,
-        contextIsolation: false, // -> true = not able to use require()
-        enableRemoteModule: true, // TODO: use an alternative on future versions.
+        nodeIntegration: false,
+        contextIsolation: true,
+        worldSafeExecuteJavaScript: true,
+        enableRemoteModule: false,
+        sandbox: true,
+        disableBlinkFeatures: "Auxclick",
         preload: path.join(__dirname, 'preload.js')
     }
   })
@@ -44,26 +47,34 @@ function createWindow () {
   if (process.platform !== 'darwin'){
     mainWindow.removeMenu();
   }
+
   if (global.isDev) {
+    ipcMain.on("toggleDevTools", ()=>{
+      mainWindow.webContents.openDevTools();
+    });
+    // if dev, open on startup
     mainWindow.webContents.openDevTools();
   }
+  mainWindow.webContents.on("devtools-opened", ()=>{
+    mainWindow.webContents.send("devtools-opened");
+  });
 
   // Security STUFF
-  session.defaultSession.webRequest.onBeforeRequest(
+  session.defaultSession.webRequest.onBeforeRequest({urls:['*://*/*']},
+    // will get every http requests, but not file:///
     function(details, callback) {
       const dirname_url = url.pathToFileURL(__dirname).href;
-      const dirname_regex = escapeRegex(dirname_url)
+      const dirname_regex = escapeRegex(dirname_url);
       const validUrl =
-        RegExp(dirname_regex).test(details.url) ||
-        /^https?:\/\/([^\/]+\.)?kagescan\.legtux\.org\//.test(details.url) ||
-        /^https?:\/\/([^\/]+\.)?raw.githubusercontent.com\/LoganTann\//.test(details.url);
-
+        ( //RegExp(dirname_regex).test(details.url) ||
+          /^https?:\/\/([^\/]+\.)?kagescan\.legtux\.org\/fangame\//.test(details.url) ||
+          /^https?:\/\/([^\/]+\.)?kagescan\.fr\/fangame\//.test(details.url) ||
+          /^https?:\/\/([^\/]+\.)?raw.githubusercontent.com\/LoganTann\//.test(details.url)
+        ) && (!details.url.includes("../"));
       if (!validUrl) {
-        console.error(`
-         The request to the website ${details.url} have been blocked by the program,
-         because it isn't registered to the Allow-List for security reasons.
-         Talking about it, this error shouldn't be triggered : please contact
-         the developer.`)
+        mainWindow.webContents.send("alert",
+          `The launcher attempted to fetch ${details.url}, but this url don't match the allowlist. This request have been blocked for security reasons. Talking about it, this error shouldn't be triggered : please contact the developer.`
+        );
       }
       callback( {cancel: !validUrl});
     },
@@ -71,21 +82,18 @@ function createWindow () {
     ["blocking"]
   );
 
-  app.on('web-contents-created', (event, contents) => {
-    contents.on('will-navigate', (event, navigationUrl) => {
-      //const parsedUrl = new url.URL(navigationUrl);
-      //if (parsedUrl.origin !== 'https://example.com') {
-      event.preventDefault();
-      // TODO: make an allowlist for pages navigation
-      //}
-    });
-    contents.on('new-window', async (event, navigationUrl) => {
-      event.preventDefault()
-      // To open with the external browser, include electron's shell module.
-      //await shell.openExternal(navigationUrl)
-    });
+  // Window.open opens only on the default browser.
+  mainWindow.webContents.on("new-window", function(event, url) {
+    event.preventDefault();
+    if (url.startsWith("https://")) {
+      shell.openExternal(url);
+    }
   });
-  // target="_blank"
+
+  ipcMain.on("getVersion", ()=>{
+    mainWindow.webContents.send("getVersion-reply", process.env.npm_package_version);
+  });
+
   mainWindow.loadFile('launcher.html');
 
 
@@ -137,9 +145,75 @@ function createWindow () {
       return false;
     }
   };
+  ipcMain.on("checkFiles", async (e, hashList)=>{
+    const queue = {
+      "code": [],
+      "assets": [],
+      "musics": [], //  Thoses are large files and takes
+      "videos": [], // around the half of the assets's size
+      "totalSize": 0,
+      "formatedSize": "0 MB"
+    }
+    for (const item of hashList) {
+      if (item.length !== 3) {
+        continue;
+      }
+
+      const [file_name, file_hash, file_size] = item;
+      const file_path = path.join(__dirname, file_name);
+      const isThisFileNeedToBeDownloaded = false;
+      let type_of_edition = "insertion";
+      if (fs.existsSync(file_path)) {
+        const local_hash = await checksumFile(file_path);
+        if (local_hash == file_hash) {
+          // Logic is simple: don't download if the file exists and hash is same
+          continue;
+        } else {
+          type_of_edition = "edition";
+        }
+      }
+
+      let type_of_file = "code";
+      if (file_name.includes("assets/")) {
+        if (file_name.includes("music/")) {
+          type_of_file = "musics";
+        } else if (file_name.includes("videos/")) {
+          type_of_file = "videos";
+        } else {
+          type_of_file = "assets";
+        }
+      }
+      queue[type_of_file].push( {url: file_name, editType: type_of_edition, fileSize: file_size});
+      queue.totalSize += file_size;
+    }
+    queue.formatedSize = formatBytes(queue.totalSize);
+    mainWindow.webContents.send("checkFiles-reply", queue);
+    return queue;
+  });
+
+  function checksumFile(path) {
+    /* Given the file [path], this will return the hash (sha1) of this file. */
+    return new Promise((resolve, reject) => {
+      const hash = crypto.createHash('sha1');
+      const stream = fs.createReadStream(path);
+      stream.on('error', err => reject(err));
+      stream.on('data', chunk => hash.update(chunk));
+      stream.on('end', () => {
+        const file_hash = hash.digest('hex');
+        resolve(file_hash);
+      });
+    });
+  }
+
+  ipcMain.on("sendIsDev", ()=>{ // question ?
+    if (global.isDev) {
+      mainWindow.webContents.send("sendIsDev-reply"); // answer !
+    }
+  });
 
   ipcMain.on("startDownload", async (event, download_list) => {
-    const nbr_of_types = Object.keys(download_list).length - 1;
+    const nbr_of_types = Object.keys(download_list).length - 2;
+    // ->> 2 = formatedSize + totalSize should be ignored
     let current_type_index = 1;
     for (const download_category in download_list) {
       if (!Array.isArray(download_list[download_category])) {

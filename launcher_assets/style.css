@@ -78,6 +78,11 @@ body {
 #message p {
   margin: auto;
 }
+#message p a {
+  color: #ddd;
+  font-size: 8pt;
+  font-style: italic;
+}
 
 #message>p.downloading {
   flex-grow: 1;

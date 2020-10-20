@@ -2,13 +2,13 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Retaining's Memories Launcher (v0.1.0)</title>
+    <title id="title_tag">Retaining's Memories Launcher</title>
     <link rel="shortcut icon" href="favicon.ico" />
     <script src="launcher_assets/virtualEne.js" charset="utf-8"></script>
     <script src="launcher_assets/updater.js" charset="utf-8"></script>
     <script src="launcher_assets/launcher.js" charset="utf-8"></script>
     <link rel="stylesheet" href="launcher_assets/style.css">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self';frame-src https://kagescan.legtux.org/fangame/; connect-src https://kagescan.legtux.org/fangame/ https://raw.githubusercontent.com/LoganTann/;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self';frame-src https://kagescan.fr/fangame/; connect-src https://kagescan.fr/fangame/ https://raw.githubusercontent.com/LoganTann/;">
   </head>
   <body id="body">
     <div id="video_intro_container">
@@ -18,13 +18,12 @@
       </video>
     </div>
     <div id="main_screen">
-      <iframe src="https://kagescan.legtux.org/fangame/launcher_page/?test"></iframe>
+      <iframe id="launcher_page_iframe" src="https://kagescan.fr/fangame/launcher_page/?test"></iframe>
       <div id="message">
-          <p><span>Goshijin, let me just check if you can connect to kagescan's server !<br>...<br></span></p>
+          <p><span>Goshijin, let me just check if you can connect to kagescan's server ! ... ...<br>
+            <a id="forceStartup" href="index.html">Or click here to force start the game (definitely not recommended)</a><br>
+          </span></p>
           <img src="launcher_assets/eneSprites/shime01.png" alt="ene sideImage" id="sideImage">
-          <!-- <a href="#!" onclick="document.getElementById('messagelog').classList.toggle('hide')">
-            backlog
-          </a> -->
       </div>
     </div>
   </body>

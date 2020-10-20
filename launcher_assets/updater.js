@@ -1,27 +1,65 @@
-const ipc = require('electron').ipcRenderer;
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
-
-const appVersion = process.env.npm_package_version;
-
+function getVersion() {
+  return new Promise(function(resolve, reject) {
+    // create the timeout
+    let still_didnt_receive_reply = true;
+    setTimeout(()=>{
+      if (still_didnt_receive_reply) {
+        reject("Cannot get the version of the launcher : timeout");
+      }
+    }, 1000);
+    // ask
+    window.api.send("getVersion");
+    // get reponse
+    window.api.receive("getVersion-reply", (data) => {
+      still_didnt_receive_reply = false;
+      resolve(data);
+    });
+  });
+}
+function checkFiles(hashList) {
+  return new Promise(function(resolve, reject) {
+    // create the timeout
+    let still_didnt_receive_reply = true;
+    setTimeout(()=>{
+      if (still_didnt_receive_reply) {
+        reject("File checking failed : timeout");
+      }
+    }, 15000);
+    // ask
+    window.api.send("checkFiles", hashList);
+    // get reponse
+    window.api.receive("checkFiles-reply", (data) => {
+      still_didnt_receive_reply = false;
+      resolve(data);
+    });
+  });
+}
 // UPDATER CLASS
 const updater = {
   fetchedHashList: {},
   start() {
-    try {
+    getVersion()
+    .then(function(appVersion) {
+      document.title = `Retaining's Memories Launcher (version ${appVersion})`;
+      document.getElementById("launcher_page_iframe").src = `https://kagescan.fr/fangame/launcher_page/?launcherVersion=${appVersion}`;
       appendMessage("Goshijin, let me just check if you can connect to kagescan's server !<br>...", true);
-      GET(`https://kagescan.legtux.org/fangame/api/?appVersion=${appVersion}&get=releaseInfo`)
+
+      GET(`https://kagescan.fr/fangame/api/?appVersion=${appVersion}&get=releaseInfo`)
+      .then(
+        updater.onceGotTheReleaseFile
+      )
       .catch(function(error) {
         setSideImage("error");
-        appendMessage("Seems like you can't access to Kagescan...");
-        console.log(error)
-      })
-      .then(updater.onceGotTheReleaseFile);
-    } catch(err) {
-      console.error("AN error occured during the file verification !! Please restart the app.");
-      console.error(err);
-    }
+        appendMessage("Seems like you can't access to Kagescan... Please restart the app in a private network (don't use your high-school's wifi). You can still force start the game, but I don't recommend it...");
+        console.error(error);
+      });
+    })
+    .catch( function(err) {
+        setSideImage("error");
+        appendMessage("<br>Seems like you can't access to Kagescan or an error might have occured during the file verification... Please restart the app in a private network (ie. don't use your high-school's wifi). You can still force start the game, but I don't recommend it...");
+        console.error("An error occured during the file verification !! Please restart the app.");
+        console.error(err);
+    });
   },
   async onceGotTheReleaseFile(data) {
     const updates = JSON.parse(data);
@@ -30,77 +68,38 @@ const updater = {
       appendMessage("An error happened !!!" + updates.error);
       return updates.error;
     }
+
     updater.fetchedHashList = updates.hashList;
-    const downloadList= await updater.checkFiles(updater.fetchedHashList);
-    if (downloadList.totalSize == 0) {
-      show_play_btn();
-    } else {
-      const totalSize = formatBytes(downloadList.totalSize);
-      setSideImage("ask");
-      appendMessage(`I'm connected ! I'll download the game's full source code and assets, but this will require to fetch ${totalSize} ...`);
-      confirmMessage(
-        function() { updater.DoDownloadItemList(downloadList); },
-        function(){
-          setSideImage("sit tongue");
-          appendMessage("Goshujin, you should download the full source code and the assets in order to play the game !!", true);
-          appendMessage("Please restart the game when you're ready to download. Or maybe you may want to dowload manually ?");
-        }
-      )
-    }
+    checkFiles(updater.fetchedHashList)
+    .then(function(downloadList) {
+      if (downloadList.totalSize == 0) {
+        show_play_btn();
+      } else {
+        setSideImage("ask");
+        appendMessage(`I'm connected ! I'll download the game's full source code and assets, but this will require to fetch ${downloadList.formatedSize} ...`);
+        confirmMessage(
+          function() { updater.DoDownloadItemList(downloadList); },
+          function(){
+            setSideImage("sit tongue");
+            appendMessage("Goshujin, you should download the full source code and the assets in order to play the game !!", true);
+            appendMessage("Please restart the game when you're ready to download. Or maybe you may want to dowload manually ?");
+            appendMessage("You can still <a href='index.html'>force start the game</a> with the current files already downloaded, but I don't recommend it...")
+          }
+        )
+      }
+    })
+    .catch(function(e) {
+      alert(e);
+    });
   },
-  async checkFiles(hashList) {
-    // // TODO: Add security by moving that into ipc renderer/main
-    const queue = {
-      "code": [],
-      "assets": [],
-      "musics": [], //  Thoses are large files and takes
-      "videos": [], // around the half of the assets's size
-      "totalSize": 0
-    }
-    for (const item of hashList) {
-      if (item.length !== 3) {
-        continue;
-      }
 
-      const [file_name, file_hash, file_size] = item;
-      const file_path = path.join(__dirname, file_name);
-      const isThisFileNeedToBeDownloaded = false;
-      let type_of_edition = "insertion";
-      if (fs.existsSync(file_path)) {
-        const local_hash = await checksumFile(file_path);
-        if (local_hash == file_hash) {
-          // Logic is simple: don't download if the file exists and hash is same
-          continue;
-        } else {
-          type_of_edition = "edition";
-        }
-      }
-
-      let type_of_file = "code";
-      if (file_name.includes("assets/")) {
-        if (file_name.includes("music/")) {
-          type_of_file = "musics";
-        } else if (file_name.includes("videos/")) {
-          type_of_file = "videos";
-        } else {
-          type_of_file = "assets";
-        }
-      }
-      queue[type_of_file].push( {url: file_name, editType: type_of_edition, fileSize: file_size});
-      queue.totalSize += file_size;
-    }
-    // TODO: check files to delete in another function
-    console.log(queue);
-    return queue;
-  }
-  ,
   DoDownloadItemList(downloadList) {
     const title_category_being_dl = document.createElement("span");
     const title_file_being_dl = document.createElement("span");
     const general_progress = document.createElement("span");
     const file_progress = document.createElement("span");
 
-    general_progress.innerHTML = `<svg width="80mm" height="14mm" version="1.1" viewBox="0 0 120 21" xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+    general_progress.innerHTML = `<svg width="80mm" height="14mm" version="1.1" viewBox="0 0 120 21" xmlns="https://www.w3.org/2000/svg" xmlns:cc="https://creativecommons.org/ns#" xmlns:dc="https://purl.org/dc/elements/1.1/" xmlns:rdf="https://www.w3.org/1999/02/22-rdf-syntax-ns#">
      <rect x="17.5" y="3" width="100" height="10" fill="#133d59" fill-rule="evenodd" stroke="#218791" stroke-width=".7"/>
      <rect x="17.3" y="3" width="0" height="10" class="progressBar" fill="#59bfc8"/>
      <path transform="matrix(1.218 0 0 1.1743 3 4.8239)" d="m8.3603 5.1835-5.3791 3.2167-5.3783-3.0961 0.0011-6.3197 5.3791-3.0925 5.3783 3.1116z" fill-rule="evenodd" stroke-width=".26458" fill="#218791"/>
@@ -133,31 +132,30 @@ const updater = {
       setInterval(animateEne, 1700);
     }
 
-    ipc.send("startDownload", downloadList);
+    window.api.send("startDownload", downloadList);
 
-    ipc.on("downloadFinished", async (event, options) => {
+    window.api.receive("downloadFinished", async () => {
       message.classList.remove("downloading");
       appendMessage("Download finished !!", true);
       setSideImage("yay");
 
-      const downloadList= await updater.checkFiles(updater.fetchedHashList);
-      if (downloadList.totalSize == 0) {
-        show_play_btn();
-      } else {
-        alert("Error !! The updater couldn't download all the files. \n"+
-          "Please ensure you are connected to a stable private network (avoid mac donald's or your high-school's wifi) and restart the game.");
-      }
+      checkFiles(updater.fetchedHashList)
+      .then(function(downloadList) {
+        if (downloadList.totalSize == 0) {
+          show_play_btn();
+        } else {
+          alert("Error !! The updater couldn't download all the files. \n"+
+            "Please ensure you are connected to a stable private network (avoid mac donald's or your high-school's wifi) and restart the game.");
+        }
+      })
+      .catch(function(e) {
+        alert(e);
+      });
     });
-    //window.api.send("startDownload", downloadList);
-    // messageContainer.style.flexGrow = null;
   }
-
 }
 
-/*window.api.receive("updateDownloadMessage", (type) => {
-  console.log(`Received ${data} from main process`);
-});*/
-ipc.on("updateDownloadMessage", (event, options) => {
+window.api.receive("updateDownloadMessage", (options) => {
   const {type, content} = options;
   switch (type) {
     case "categoryTitle":
@@ -176,8 +174,8 @@ ipc.on("updateDownloadMessage", (event, options) => {
   }
 });
 
-ipc.on("alert", (event, options) => {
-  alert(options);
+window.api.receive("alert", (content) => {
+  alert(content);
 });
 // HELPERS
 
@@ -199,32 +197,6 @@ function GET(url) {
 
     request.send();
   });
-}
-
-function checksumFile(path) {
-  /* Given the file [path], this will return the hash (sha1) of this file. */
-  return new Promise((resolve, reject) => {
-    const hash = crypto.createHash('sha1');
-    const stream = fs.createReadStream(path);
-    stream.on('error', err => reject(err));
-    stream.on('data', chunk => hash.update(chunk));
-    stream.on('end', () => {
-      const file_hash = hash.digest('hex');
-      resolve(file_hash);
-    });
-  });
-}
-function formatBytes(bytes, decimals = 2) {
-  // https://stackoverflow.com/a/18650828
-  if (bytes === 0) return '0 Bytes';
-
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
 function confirmMessage(callbackOk, callbackNo, btnContentOk="Confirm", btnContentNo="Nope.") {
@@ -269,7 +241,7 @@ function show_play_btn() {
   a.href = "index.html"
   a.style.margin = "auto"
   a.innerHTML = `
-    <svg width="100mm" height="50mm" viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg">
+    <svg width="100mm" height="50mm" viewBox="0 0 100 50" xmlns="https://www.w3.org/2000/svg">
       <defs>
         <g id="LETS" transform="translate(-3.4095 -40.755)">
           <path fill="#ff227e" stroke-width=".26458" d="m 26.798174,26.082651 h 0.361734 q 0.05684,0.589109 0.227375,0.981849 0.170532,0.392739 0.418578,0.625283 0.253214,0.232543 0.573607,0.330728 0.32556,0.09302 0.687294,0.09302 0.434081,0 0.738971,-0.10852 0.310057,-0.10852 0.506427,-0.299723 0.201537,-0.196369 0.289387,-0.465086 0.09302,-0.273884 0.09302,-0.599445 0,-0.403075 -0.134358,-0.661456 -0.134358,-0.263549 -0.377237,-0.444416 -0.237711,-0.186034 -0.573606,-0.320393 -0.335896,-0.134358 -0.738971,-0.279051 -0.403075,-0.144694 -0.769976,-0.30489 -0.361734,-0.160197 -0.640786,-0.397908 -0.279052,-0.237711 -0.444416,-0.578774 -0.160196,-0.346231 -0.160196,-0.857826 0,-0.480589 0.155028,-0.878497 0.155029,-0.397907 0.459919,-0.676959 0.30489,-0.284219 0.754474,-0.439248 0.454751,-0.155029 1.054196,-0.155029 0.23771,0 0.490924,0.02584 0.253214,0.02067 0.50126,0.06718 0.253214,0.04651 0.496092,0.113687 0.242879,0.06201 0.459919,0.139526 l 0.06201,1.875849 H 30.92711 q -0.04651,-0.558104 -0.206706,-0.909503 -0.160196,-0.351398 -0.392739,-0.547768 -0.227376,-0.201537 -0.511595,-0.273884 -0.279052,-0.07752 -0.573607,-0.07752 -0.392739,0 -0.682127,0.09819 -0.289387,0.09302 -0.480589,0.273885 -0.191202,0.175699 -0.289387,0.43408 -0.09302,0.253214 -0.09302,0.573607 0,0.382404 0.134358,0.635618 0.134358,0.253214 0.377237,0.439248 0.248046,0.180867 0.589109,0.325561 0.346231,0.139526 0.759641,0.294554 0.377237,0.144694 0.738971,0.310058 0.366902,0.160196 0.651121,0.408242 0.289387,0.242879 0.465086,0.604613 0.1757,0.356566 0.1757,0.888832 0,0.516762 -0.180867,0.919837 -0.175699,0.403075 -0.511595,0.676959 -0.330728,0.273885 -0.811318,0.418578 -0.480589,0.144694 -1.085201,0.144694 -0.263549,0 -0.547769,-0.02584 -0.279052,-0.02584 -0.558103,-0.07751 -0.273885,-0.05168 -0.537434,-0.118855 -0.263549,-0.06718 -0.490924,-0.155029 z m -2.3306,-5.260644 q 0.12919,-0.01034 0.258381,-0.0155 0.129191,-0.01034 0.258381,-0.01034 0.129191,0 0.253214,0.01034 0.129191,0.0052 0.263549,0.0155 l -0.361734,2.811189 q -0.07751,0.0155 -0.155029,0.0155 -0.07751,0 -0.155028,-0.0155 z m -7.260516,0 h 6.056459 l 0.124023,2.227247 h -0.361734 q -0.07235,-0.578774 -0.186035,-0.935341 -0.113688,-0.356566 -0.32556,-0.547768 -0.206705,-0.19637 -0.537433,-0.263549 -0.330729,-0.06718 -0.831988,-0.06718 h -0.418578 v 6.681741 h 1.136878 v 0.41341 h -3.281443 v -0.41341 h 1.136878 v -6.681741 h -0.39274 q -0.335896,0 -0.594277,0.02584 -0.258381,0.02584 -0.454751,0.09819 -0.191202,0.07235 -0.330728,0.201537 -0.139526,0.129191 -0.237711,0.330728 -0.09818,0.201538 -0.170532,0.485757 -0.06718,0.28422 -0.118855,0.671792 h -0.361734 z m -5.162459,3.405466 h 0.676959 q 0.346231,0 0.578774,-0.02584 0.232543,-0.02584 0.372069,-0.144694 0.144694,-0.124023 0.21704,-0.377237 0.07235,-0.258381 0.103353,-0.723468 h 0.366901 v 3.059236 h -0.366901 q -0.02584,-0.470255 -0.08785,-0.738971 -0.06201,-0.273884 -0.201537,-0.41341 -0.139526,-0.139526 -0.377237,-0.1757 -0.232543,-0.03617 -0.604612,-0.03617 h -0.676959 v 3.26594 h 1.369421 q 0.403075,0 0.707965,-0.03101 0.30489,-0.03101 0.532265,-0.113687 0.227376,-0.08268 0.387572,-0.232544 0.165364,-0.149861 0.28422,-0.387572 0.118855,-0.23771 0.201537,-0.578774 0.08268,-0.341063 0.155029,-0.80615 h 0.361734 l -0.103353,2.563143 h -5.937603 v -0.41341 h 1.033525 v -6.681741 h -1.033525 v -0.41341 h 5.808412 l 0.103353,2.072218 h -0.361734 q -0.07751,-0.516763 -0.191202,-0.837156 -0.113688,-0.32556 -0.320393,-0.506427 -0.201537,-0.186035 -0.532265,-0.248046 -0.325561,-0.06718 -0.826821,-0.06718 h -1.638137 z m -5.3794998,3.689685 q 0.4030749,0 0.7079649,-0.03101 0.30489,-0.03101 0.5322656,-0.113687 0.2325432,-0.08785 0.3979072,-0.237711 0.1653641,-0.155029 0.2842195,-0.397907 0.1188554,-0.242879 0.2015374,-0.58911 0.08785,-0.351399 0.1550288,-0.831988 H 9.3057565 L 9.1920687,28.330568 H 3.4094944 v -0.41341 H 4.4430197 V 21.235417 H 3.4094944 v -0.41341 h 3.0747379 v 0.41341 H 5.4507069 v 6.681741 z"></path>
